@@ -1,15 +1,15 @@
+# saves kaggle fashion datset images to binary file for training
 import os
 import requests
 import tarfile
 from tqdm import tqdm
-
-# saves kaggle fashion datset images to binary file for training
 
 
 # TODO: add necessary utils to load image encoder
 # tokenizer https://github.com/TencentARC/Open-MAGVIT2
 # chkpt https://huggingface.co/TencentARC/Open-MAGVIT2/blob/main/imagenet_256_B.ckpt
 enc = None
+
 
 if __name__ == '__main__':
     
