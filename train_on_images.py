@@ -41,10 +41,10 @@ always_save_checkpoint = True # if True, always save a checkpoint after each eva
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
 wandb_log = True # disabled by default
-wandb_project = 'fashion_mnist'
+wandb_project = 'fashion_kaggle'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
-dataset = 'fashion_mnist'
+dataset = 'fashion_kaggle'
 gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024

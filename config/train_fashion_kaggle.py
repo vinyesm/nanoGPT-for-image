@@ -1,7 +1,7 @@
 # train a miniature character-level shakespeare model
 # good for debugging and playing on macbooks and such
 
-out_dir = 'out-fashion-mnist'
+out_dir = 'out-fashion-kaggle'
 # eval_interval = 250 # keep frequent because we'll overfit
 # eval_iters = 200
 # log_interval = 10 # don't print too too often
@@ -10,7 +10,7 @@ out_dir = 'out-fashion-mnist'
 # always_save_checkpoint = False
 
 wandb_log = True # override via command line if you like
-wandb_project = 'fashion-mnist'
+wandb_project = 'fashion-kaggle'
 wandb_run_name = 'mini-gpt'
 
 # these make the total batch size be ~0.5M
@@ -31,7 +31,7 @@ log_interval = 10
 # weight decay
 weight_decay = 1e-1
 
-# dataset = 'fashion_mnist'
+# dataset = 'fashion_kaggle'
 # gradient_accumulation_steps = 1
 # batch_size = 16
 # block_size = 256 # context of up to 256 previous characters
