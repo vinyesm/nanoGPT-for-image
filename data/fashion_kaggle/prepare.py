@@ -19,7 +19,7 @@ from tokenizer import load_imagenet_256_L, download_imagenet_256_L
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 64
+BATCH_SIZE = 64 #128
 NUM_WORKERS = 8
 
 
@@ -114,8 +114,8 @@ if __name__ == '__main__':
     # print_memory_usage("after loading model")
 
     # concatenate all the ids in each dataset into one large file we can use for training
-    # for split in ["val", "train", "single"]:
-    for split in ["single"]:
+    for split in ["val", "train", "single"]:
+    # for split in ["single"]:
         batch_size = BATCH_SIZE
         num_workers = NUM_WORKERS
         if split == "train":
@@ -133,7 +133,7 @@ if __name__ == '__main__':
             batch_size = 1
             num_workers = 1
 
-        dtype = np.uint16
+        dtype = np.int64
         arr_len = len(dataset)*16*16
         arr = np.memmap(filename, dtype=dtype, mode='w+', shape=(arr_len,))
         # print_memory_usage("after creating memmap")
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     # print("removing tmp files")
     # shutil.rmtree("tmp")
 
-# train.bin is ~20MB, val.bin ~2.2MB
+# train.bin is ~20MB, val.bin ~2.2MB -> need to recompute after int64
 # train has ~10M tokens (10,239,232)
 # val has ~1M tokens (1,137,664)
 
@@ -187,11 +187,11 @@ if __name__ == '__main__':
 # from data.fashion_kaggle.tokenizer import custom_to_pil, decode_from_indices, load_imagenet_256_L
 # DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # enc = load_imagenet_256_L().to(DEVICE)
-# m = np.memmap('data/fashion_kaggle/single.bin', dtype=np.uint16, mode='r')
+# m = np.memmap('data/fashion_kaggle/single.bin', dtype=np.int64, mode='r')
 # x = (torch.tensor(m, dtype=torch.int64, device=DEVICE))
 # xr = decode_from_indices(enc, x, 1)
 # ximg = custom_to_pil(xr[0])
-# ximg.save("img.jpg")
+# ximg.save("img2.jpg")
 
 # from matplotlib import pyplot as plt
 # from data.fashion_kaggle.custom import CustomTest, CustomTrain
@@ -199,6 +199,7 @@ if __name__ == '__main__':
 # import PIL
 # kaggle_dataset = CustomTest(size=256, test_images_list_file="tmp/fashion_kaggle/images_list.txt")
 # array = kaggle_dataset[144]["image"]
-# array_uint8 = (array * 255).astype(np.uint8)
+# array_normalized = (array - np.min(array)) / (np.max(array) - np.min(array))
+# array_uint8 = (array_normalized * 255).astype(np.uint8)
 # image = PIL.Image.fromarray(array_uint8)
-# image.save('img.jpg', 'JPEG')
+# image.save('img1.jpg', 'JPEG')
