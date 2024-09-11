@@ -1,7 +1,7 @@
 # train a miniature character-level shakespeare model
 # good for debugging and playing on macbooks and such
 
-out_dir = 'out-fashion-kaggle-single-image'
+out_dir = 'out-fashion-kaggle'
 # eval_interval = 250 # keep frequent because we'll overfit
 # eval_iters = 200
 # log_interval = 10 # don't print too too often
@@ -11,7 +11,7 @@ out_dir = 'out-fashion-kaggle-single-image'
 
 wandb_log = True # override via command line if you like
 wandb_project = 'fashion-kaggle'
-wandb_run_name = 'debug_on_single_imagenet_256_L'
+wandb_run_name = 'imagenet_256_L'
 # wandb_run_name = 'imagenet_256_L'
 
 # these make the total batch size be ~0.5M
@@ -25,7 +25,7 @@ max_iters = 600000
 lr_decay_iters = 600000
 
 # eval stuff
-eval_interval = 10
+eval_interval = 200
 eval_iters = 200
 log_interval = 10
 
