@@ -3,29 +3,24 @@
 # https://github.com/TencentARC/Open-MAGVIT2/tree/main
 
 import os
-import pkg_resources
 import psutil
 import requests
 import shutil
-import subprocess
 import tarfile
 
 import numpy as np
-from omegaconf import OmegaConf
-from taming.models.lfqgan import VQModel
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate as custom_collate
 from tqdm import tqdm
 
 from custom import CustomTest, CustomTrain
+from tokenizer import load_imagenet_256_L, download_imagenet_256_L
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 64
 NUM_WORKERS = 8
-
-ckpt_path = "image_tokenizer"
 
 
 class SingleSampleDataset(Dataset):
@@ -74,32 +69,6 @@ def write_img_file_list(in_directory, out_file):
     for path in img_paths:
       f.write(path + "\n")
 
-def download_imagenet_256_L(ckpt_path):
-    '''
-    Downloads the image tokenizer model imagenet_256_L.ckpt if not already downloaded
-    '''
-    if not os.path.exists(os.path.join(ckpt_path, 'imagenet_256_L.ckpt')):
-        os.makedirs(ckpt_path, exist_ok=True)
-        url = "https://huggingface.co/TencentARC/Open-MAGVIT2/resolve/main/imagenet_256_L.ckpt"
-        output_path = os.path.join(ckpt_path, 'imagenet_256_L.ckpt')
-        subprocess.run(["wget", url, "-O", output_path])
-    else:
-        print("imagenet_256_L.ckpt already exists. Skipping download.")
-
-def load_imagenet_256_L(ckpt_path):
-    '''
-    loads the image tokenizer model
-    '''
-    config_path = pkg_resources.resource_filename('configs', 'gpu/imagenet_lfqgan_256_L.yaml')
-    config = OmegaConf.load(config_path)
-    model = VQModel(**config.model.init_args)
-    model_path = os.path.join(ckpt_path, 'imagenet_256_L.ckpt')
-    print(model_path)
-    if ckpt_path is not None:
-        sd = torch.load(model_path, map_location="cpu")["state_dict"]
-        missing, unexpected = model.load_state_dict(sd, strict=False)
-    return model.eval()
-
 def print_memory_usage(stage):
     '''
     Prints CPU and GPU memory usage
@@ -117,8 +86,11 @@ def print_memory_usage(stage):
 
 if __name__ == '__main__':
     # download and load the dataset
-    # download_and_extract_dataset()
-    # write_img_file_list("tmp/fashion_kaggle/fashion_kaggle", "tmp/fashion_kaggle/images_list.txt")
+    if not os.path.exists("tmp/fashion_kaggle/fashion_kaggle"):
+        download_and_extract_dataset()
+    else:
+        "tmp/fashion_kaggle/fashion_kaggle exists, skipping dataset download..."
+    write_img_file_list("tmp/fashion_kaggle/fashion_kaggle", "tmp/fashion_kaggle/images_list.txt")
     kaggle_dataset = CustomTest(size=256, test_images_list_file="tmp/fashion_kaggle/images_list.txt")
 
     # split train/val
@@ -129,20 +101,21 @@ if __name__ == '__main__':
     print(f"Length of validation set: {len(val)} ({100*len(val)/(len(train)+len(val)):0.0f}%)")
 
     # add a debug dataset with single image
-    index = 0  # You can change this index if needed
+    index = 144  # You can change this index if needed
     data = kaggle_dataset[index]
     single = SingleSampleDataset(data)
     print(f"Length of single set: {len(single)}")
 
     # download the image tokenizer model
-    download_imagenet_256_L(ckpt_path)
+    download_imagenet_256_L()
 
     # load the image tokenizer model
-    enc = load_imagenet_256_L(ckpt_path).to(DEVICE)
+    enc = load_imagenet_256_L().to(DEVICE)
     # print_memory_usage("after loading model")
 
     # concatenate all the ids in each dataset into one large file we can use for training
-    for split in ["val", "train", "single"]:
+    # for split in ["val", "train", "single"]:
+    for split in ["single"]:
         batch_size = BATCH_SIZE
         num_workers = NUM_WORKERS
         if split == "train":
@@ -198,8 +171,8 @@ if __name__ == '__main__':
         # print_memory_usage("after flushing memmap")
 
     # clean tmp files
-    print("removing tmp files")
-    shutil.rmtree("tmp")
+    # print("removing tmp files")
+    # shutil.rmtree("tmp")
 
 # train.bin is ~20MB, val.bin ~2.2MB
 # train has ~10M tokens (10,239,232)
@@ -208,3 +181,24 @@ if __name__ == '__main__':
 # to read the bin files later, e.g. with numpy:
 # m = np.memmap('train.bin', dtype=np.uint16, mode='r')
 
+import numpy as np
+import torch
+import PIL
+from data.fashion_kaggle.tokenizer import custom_to_pil, decode_from_indices, load_imagenet_256_L
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+enc = load_imagenet_256_L().to(DEVICE)
+m = np.memmap('data/fashion_kaggle/single.bin', dtype=np.uint16, mode='r')
+x = (torch.tensor(m, dtype=torch.int64, device=DEVICE))
+xr = decode_from_indices(enc, x, 1)
+ximg = custom_to_pil(xr[0])
+ximg.save("img.jpg")
+
+from matplotlib import pyplot as plt
+from data.fashion_kaggle.custom import CustomTest, CustomTrain
+import numpy as np
+import PIL
+kaggle_dataset = CustomTest(size=256, test_images_list_file="tmp/fashion_kaggle/images_list.txt")
+array = kaggle_dataset[144]["image"]
+array_uint8 = (array * 255).astype(np.uint8)
+image = PIL.Image.fromarray(array_uint8)
+image.save('img.jpg', 'JPEG')
