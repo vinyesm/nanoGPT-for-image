@@ -181,24 +181,24 @@ if __name__ == '__main__':
 # to read the bin files later, e.g. with numpy:
 # m = np.memmap('train.bin', dtype=np.uint16, mode='r')
 
-import numpy as np
-import torch
-import PIL
-from data.fashion_kaggle.tokenizer import custom_to_pil, decode_from_indices, load_imagenet_256_L
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-enc = load_imagenet_256_L().to(DEVICE)
-m = np.memmap('data/fashion_kaggle/single.bin', dtype=np.uint16, mode='r')
-x = (torch.tensor(m, dtype=torch.int64, device=DEVICE))
-xr = decode_from_indices(enc, x, 1)
-ximg = custom_to_pil(xr[0])
-ximg.save("img.jpg")
+# import numpy as np
+# import torch
+# import PIL
+# from data.fashion_kaggle.tokenizer import custom_to_pil, decode_from_indices, load_imagenet_256_L
+# DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# enc = load_imagenet_256_L().to(DEVICE)
+# m = np.memmap('data/fashion_kaggle/single.bin', dtype=np.uint16, mode='r')
+# x = (torch.tensor(m, dtype=torch.int64, device=DEVICE))
+# xr = decode_from_indices(enc, x, 1)
+# ximg = custom_to_pil(xr[0])
+# ximg.save("img.jpg")
 
-from matplotlib import pyplot as plt
-from data.fashion_kaggle.custom import CustomTest, CustomTrain
-import numpy as np
-import PIL
-kaggle_dataset = CustomTest(size=256, test_images_list_file="tmp/fashion_kaggle/images_list.txt")
-array = kaggle_dataset[144]["image"]
-array_uint8 = (array * 255).astype(np.uint8)
-image = PIL.Image.fromarray(array_uint8)
-image.save('img.jpg', 'JPEG')
+# from matplotlib import pyplot as plt
+# from data.fashion_kaggle.custom import CustomTest, CustomTrain
+# import numpy as np
+# import PIL
+# kaggle_dataset = CustomTest(size=256, test_images_list_file="tmp/fashion_kaggle/images_list.txt")
+# array = kaggle_dataset[144]["image"]
+# array_uint8 = (array * 255).astype(np.uint8)
+# image = PIL.Image.fromarray(array_uint8)
+# image.save('img.jpg', 'JPEG')
