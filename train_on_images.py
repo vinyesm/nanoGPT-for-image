@@ -28,6 +28,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
+from data.fashion_kaggle.tokenizer import download_imagenet_256_L, load_imagenet_256_L, decode_from_indices, custom_to_pil
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -77,6 +78,14 @@ config_keys = [k for k,v in globals().items() if not k.startswith('_') and isins
 exec(open('configurator.py').read()) # overrides from command line or config file
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
+# to sample images and log to wandb
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+download_imagenet_256_L()
+enc = load_imagenet_256_L().to(DEVICE)
+device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
+ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
+ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
+os.makedirs("examples", exist_ok=True)
 
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
@@ -117,16 +126,12 @@ def get_batch(split):
     # We recreate np.memmap every batch to avoid a memory leak, as per
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
     if split == 'train':
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
+        data = np.memmap(os.path.join(data_dir, 'single_int64.bin'), dtype=np.int64, mode='r')
     else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-    # print(f"M len(data) {len(data)}")
-    # print(f"M block_size {block_size}")
-    # print(f"M batch_size {batch_size}")
+        data = np.memmap(os.path.join(data_dir, 'single_int64.bin'), dtype=np.int64, mode='r')
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
-    # print(f"M ix {ix} | len(x) {len(x)} | len(y) {len(y)}")
     if device_type == 'cuda':
         # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
         x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
@@ -272,12 +277,29 @@ while True:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         if wandb_log:
+            ids = [154737, 116747, 228897,  69697,  93731, 216166,   1176,  54925,  38599,
+                181844,  84083, 226373,  69154, 224361,  69155, 218209, 223348,  73227,
+                106855, 228394,  93249, 201056, 171069, 186658, 204514, 104134, 138280,
+                92197,  94219, 102723,  96294,  91714, 126309,  90146,  24525, 106529,
+                93794,  95269, 243052, 116385, 121609,  62229,  88097,  87375, 208432,
+                5161, 121189,  91712, 122145, 223842,  70665, 122661,  97319, 215239,
+                78160,  87632,  24372, 157296, 215237,  97891, 129349,  75299,  56399,
+                221793]
+            x = (torch.tensor(ids, dtype=torch.int64, device=device)[None, ...])
+            with torch.no_grad():
+                with ctx:
+                    y = model.generate(x, 256 - len(ids), temperature=0.8, top_k=200)
+            x = (torch.tensor(y[0], dtype=torch.int64, device=DEVICE))
+            xr = decode_from_indices(enc, x, 1)
+            ximg = custom_to_pil(xr[0])
+            ximg.save(f"examples/{iter_num}.jpg")
             wandb.log({
                 "iter": iter_num,
                 "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
                 "mfu": running_mfu*100, # convert to percentage
+                "examples":  wandb.Image(f"examples/{iter_num}.jpg"),
             })
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']

@@ -114,10 +114,13 @@ if __name__ == '__main__':
     # print_memory_usage("after loading model")
 
     # concatenate all the ids in each dataset into one large file we can use for training
-    for split in ["val", "train", "single"]:
-    # for split in ["single"]:
+    # for split in ["val", "train", "single"]:
+    for split in ["single"]:
         batch_size = BATCH_SIZE
         num_workers = NUM_WORKERS
+        dtype = np.uint64
+        dtype_name =  str(dtype).split('.')[1].split("'")[0]
+
         if split == "train":
             dataset = train
             filename = 'data/fashion_kaggle/train.bin'
@@ -129,11 +132,11 @@ if __name__ == '__main__':
         elif split == "single":
             dataset = single
             total = single.__len__()
-            filename = 'data/fashion_kaggle/single.bin'
+            filename = f'data/fashion_kaggle/single_{dtype_name}.bin'
             batch_size = 1
             num_workers = 1
 
-        dtype = np.int64
+        
         arr_len = len(dataset)*16*16
         arr = np.memmap(filename, dtype=dtype, mode='w+', shape=(arr_len,))
         # print_memory_usage("after creating memmap")
@@ -185,13 +188,22 @@ if __name__ == '__main__':
 # import torch
 # import PIL
 # from data.fashion_kaggle.tokenizer import custom_to_pil, decode_from_indices, load_imagenet_256_L
+
 # DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # enc = load_imagenet_256_L().to(DEVICE)
-# m = np.memmap('data/fashion_kaggle/single.bin', dtype=np.int64, mode='r')
-# x = (torch.tensor(m, dtype=torch.int64, device=DEVICE))
-# xr = decode_from_indices(enc, x, 1)
-# ximg = custom_to_pil(xr[0])
-# ximg.save("img2.jpg")
+# m_uint16 = np.memmap('data/fashion_kaggle/single_uint16.bin', dtype=np.uint16, mode='r')
+# m_int64 = np.memmap('data/fashion_kaggle/single_int64.bin', dtype=np.int64, mode='r')
+# m_uint64 = np.memmap('data/fashion_kaggle/single_uint64.bin', dtype=np.uint64, mode='r')
+
+# def to_img(m, name):
+#     x = (torch.tensor(m, dtype=torch.int64, device=DEVICE))
+#     xr = decode_from_indices(enc, x, 1)
+#     ximg = custom_to_pil(xr[0])
+#     ximg.save(f"{name}.jpg")
+
+# to_img(m_uint16, "m_uint16")
+# to_img(m_int64, "m_int64")
+# to_img(m_uint64, "m_uint64")
 
 # from matplotlib import pyplot as plt
 # from data.fashion_kaggle.custom import CustomTest, CustomTrain

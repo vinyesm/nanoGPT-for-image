@@ -11,7 +11,7 @@ out_dir = 'out-fashion-kaggle'
 
 wandb_log = True # override via command line if you like
 wandb_project = 'fashion-kaggle'
-wandb_run_name = 'imagenet_256_L'
+wandb_run_name = 'single_int64_loaded_as_int64_imagenet_256_L'
 # wandb_run_name = 'imagenet_256_L'
 
 # these make the total batch size be ~0.5M
@@ -25,7 +25,7 @@ max_iters = 600000
 lr_decay_iters = 600000
 
 # eval stuff
-eval_interval = 200
+eval_interval = 10
 eval_iters = 200
 log_interval = 10
 
