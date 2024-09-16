@@ -66,7 +66,7 @@ def custom_to_pil(x):
     x = x.detach().cpu()
     x = torch.clamp(x, -1., 1.)
     x = (x + 1.)/2.
-    x = x.permute(1,2,0).numpy()
+    x = x.permute(1,2,0).to(torch.float32).numpy()
     x = (255*x).astype(np.uint8)
     x = PIL.Image.fromarray(x)
     if not x.mode == "RGB":
