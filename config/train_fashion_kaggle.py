@@ -6,6 +6,7 @@ from data.fashion_kaggle.tokenizer import decode_from_indices, custom_to_pil
 meta_vocab_size = 262144
 out_dir = 'out-fashion-kaggle'
 dataset = 'fashion_kaggle'
+data_dtype = np.int64
 
 # wandb
 wandb_log = True
