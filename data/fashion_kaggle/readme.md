@@ -12,7 +12,7 @@ this came from 44,444 images of (256,256) pixels in total. The image tokenizer u
 references:
 
 - [Fashion Product Images](https://www.kaggle.com/datasets/paramaggarwal/fashion-product-images-dataset) dataset
-- [Language Model Beats Diffusion: Tokenizer is key to visual generation] (https://magvit.cs.cmu.edu/v2/)
+- [Language Model Beats Diffusion: Tokenizer is key to visual generation](https://magvit.cs.cmu.edu/v2/)
 - [Open-MAGVIT2](https://github.com/TencentARC/Open-MAGVIT2/tree/main), [checkpoint 256×256 ImageNet](https://huggingface.co/TencentARC/Open-MAGVIT2/blob/main/imagenet_256_L.ckpt)
 
 
