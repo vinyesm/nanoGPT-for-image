@@ -1,5 +1,6 @@
 """
 utils to load a custom dataset of images from a list of files
+code extracted from https://github.com/CompVis/taming-transformers/blob/master/taming/data/custom.py
 """
 
 import os

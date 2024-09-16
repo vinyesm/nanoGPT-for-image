@@ -33,7 +33,7 @@ def load_imagenet_256_L():
     model_path = os.path.join(ckpt_path, 'imagenet_256_L.ckpt')
     print(model_path)
     if ckpt_path is not None:
-        sd = torch.load(model_path, map_location="cpu")["state_dict"]
+        sd = torch.load(model_path, map_location="cpu", weights_only=True)["state_dict"]
         missing, unexpected = model.load_state_dict(sd, strict=False)
     return model.eval()
 
@@ -43,7 +43,7 @@ def decode_quant(enc, quant):
     input: quantized images (N, embed_dim, 16, 16). Tensor values are {+1, -1}
     output: reconstructed images (N, C, H, W)
     '''
-    # decode
+    # from embeddings to image
     with torch.no_grad():
         reconstructed_images = enc.decode(quant)
     return reconstructed_images
@@ -54,7 +54,7 @@ def decode_from_indices(enc, tokens, batch_size):
     input: token ids (N * 16 * 16)
     output: reconstructed images (N, C, H, W)
     '''
-    # from token ids to embeddings
+    # from token ids to image
     x = rearrange(tokens, "(b s) -> b s", b=batch_size)
     quant = enc.quantize.get_codebook_entry(x, (batch_size, 16, 16, 18), order='')
     return decode_quant(enc, quant)
