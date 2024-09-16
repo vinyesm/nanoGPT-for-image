@@ -49,6 +49,7 @@ gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024
 # model
+meta_vocab_size = None
 n_layer = 12
 n_head = 12
 n_embd = 768
@@ -135,13 +136,13 @@ iter_num = 0
 best_val_loss = 1e9
 
 # attempt to derive vocab_size from the dataset
-meta_path = os.path.join(data_dir, 'meta.pkl')
-meta_vocab_size = None
-if os.path.exists(meta_path):
-    with open(meta_path, 'rb') as f:
-        meta = pickle.load(f)
-    meta_vocab_size = meta['vocab_size']
-    print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
+if meta_vocab_size is None:
+    meta_path = os.path.join(data_dir, 'meta.pkl')
+    if os.path.exists(meta_path):
+        with open(meta_path, 'rb') as f:
+            meta = pickle.load(f)
+        meta_vocab_size = meta['vocab_size']
+        print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
 
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
@@ -263,14 +264,21 @@ while True:
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        if log_media:
+            ximg = generate_image(model, enc, start_ids)
+            ximg.save(f"examples/{iter_num}.jpg")
         if wandb_log:
-            wandb.log({
+            log_data = {
                 "iter": iter_num,
                 "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
-                "mfu": running_mfu*100, # convert to percentage
-            })
+                "mfu": running_mfu * 100,  # convert to percentage
+            }
+            if log_media:
+                log_data["examples"] = wandb.Image(f"examples/{iter_num}.jpg")
+            wandb.log(log_data)
+
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']
             if iter_num > 0:
