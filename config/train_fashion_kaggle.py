@@ -25,7 +25,7 @@ log_media = True # if True dumps generated image examples in examples folder (an
 # batch
 batch_size = 1
 block_size = 64 #2048
-gradient_accumulation_steps = 5 * 8 * 10
+gradient_accumulation_steps = 1
 
 # adamw optimizer
 max_iters = 300 #600000
