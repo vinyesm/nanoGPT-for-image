@@ -2,13 +2,15 @@ import importlib
 import os
 import sys
 import time
+import tempfile
 import math
 import pickle
 from contextlib import nullcontext
 import collections
 
 import numpy as np
-from ray import train, tune
+import ray
+from ray.tune.schedulers import ASHAScheduler
 
 
 from model import GPTConfig, GPT
@@ -26,22 +28,21 @@ def deep_merge(d1, d2):
             d1[k] = v
     return d1
 
-def flatten_dict(d, parent_key='', sep='.'):
+def flatten_dict(d, sep='.'):
     items = {}
     for k, v in d.items():
-        new_key = f'{parent_key}{sep}{k}' if parent_key else k
         if isinstance(v, dict):
-            items.update(flatten_dict(v, new_key, sep=sep))
+            items.update(flatten_dict(v, sep=sep))
         else:
-            items[new_key] = v
+            items[k] = v
     return items
 
 default_config = {
     'io': {
         'out_dir': 'out-fashion-kaggle',  # Unchanged
-        'eval_interval': 10,  # Unchanged
-        'log_interval': 10,  # Unchanged
-        'eval_iters': 200,  # Unchanged
+        'eval_interval': 100,  # Unchanged
+        'log_interval': 100,  # Unchanged
+        'eval_iters': 10000,  # Unchanged
         'eval_only': False,  # Unchanged
         'always_save_checkpoint': True,  # Unchanged
         'init_from': 'scratch',  # Unchanged
@@ -50,7 +51,7 @@ default_config = {
     'wandb': {
         'wandb_log': True,  # Unchanged
         'wandb_project': 'fashion-kaggle',  # Unchanged
-        'wandb_run_name': 'test_hpt_ray',  # Unchanged
+        'wandb_run_name': 'test_hpt_ray_2',  # Unchanged
         'log_media': True,  # Unchanged
     },
 
@@ -58,7 +59,7 @@ default_config = {
         'data_dtype': np.int64,  # Unchanged
         'dataset': 'fashion_kaggle',  # Unchanged
         'gradient_accumulation_steps': 1,  # Unchanged
-        'batch_size': 1,  # Unchanged
+        'batch_size': 16,  # Unchanged
         'block_size': 64,  # Unchanged
     },
     
@@ -77,7 +78,7 @@ default_config = {
         'beta1': 0.9,  # Unchanged
         'beta2': 0.95,  # Unchanged
         'grad_clip': 1.0,  # Unchanged
-        'max_iters': 600000,  # Added
+        'max_iters': 10000,  # Added
     },
     
     'lr_decay': {
@@ -315,19 +316,24 @@ def train(config):
                 if log_media:
                     log_data["examples"] = wandb.Image(f"examples/{iter_num}.jpg")
                 wandb.log(log_data)
+            #ray report
+            ray.train.report({"val_loss": losses['val'].item()})
 
-            if losses['val'] < best_val_loss or always_save_checkpoint:
-                best_val_loss = losses['val']
-                if iter_num > 0:
-                    checkpoint = {
-                        'model': raw_model.state_dict(),
-                        'optimizer': optimizer.state_dict(),
-                        'model_args': model_args,
-                        'iter_num': iter_num,
-                        'best_val_loss': best_val_loss,
-                    }
-                    print(f"Saving checkpoint to {out_dir}")
-                    torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
+            # if losses['val'] < best_val_loss or always_save_checkpoint:
+            #     best_val_loss = losses['val']
+            #     if iter_num > 0:
+            #         checkpoint = {
+            #             'model': raw_model.state_dict(),
+            #             'optimizer': optimizer.state_dict(),
+            #             'model_args': model_args,
+            #             'iter_num': iter_num,
+            #             'best_val_loss': best_val_loss,
+            #         }
+            #         with tempfile.TemporaryDirectory() as temp_checkpoint_dir:
+            #             print(f"Saving checkpoint to {temp_checkpoint_dir}")
+            #             torch.save(checkpoint, os.path.join(temp_checkpoint_dir, 'ckpt.pt'))
+            #             ray_checkpoint = ray.train.Checkpoint.from_directory(temp_checkpoint_dir)
+            #             ray.train.report({"val_loss": losses['val'].item()}, checkpoint=ray_checkpoint)
 
         if iter_num == 0 and eval_only:
             break
@@ -371,18 +377,26 @@ def train(config):
 
 search_space = {
     'optimizer': {
-        "learning_rate": tune.sample_from(lambda spec: 10 ** (-10 * np.random.rand()))
+        "learning_rate": ray.tune.sample_from(lambda spec: 10 ** (-10 * np.random.rand()))
         },
     'data': {
-        "block_size": tune.grid_search([16, 64, 128]),
+        "block_size": ray.tune.grid_search([16, 64, 128]),
         },
 }
 
-train_with_resources = tune.with_resources(train, {"gpu": 1})
+train_with_resources = ray.tune.with_resources(train, {"gpu": 1})
 
-tuner = tune.Tuner(
+tuner = ray.tune.Tuner(
     train_with_resources,
     param_space=search_space,
-    tune_config=tune.TuneConfig(num_samples=1, max_concurrent_trials=1), 
+    tune_config= ray.tune.TuneConfig(
+        num_samples=10, 
+        scheduler=ASHAScheduler(metric="val_loss", mode="min"),
+        ), 
+    run_config=ray.train.RunConfig(
+        checkpoint_config=ray.train.CheckpointConfig(
+            num_to_keep=1
+        ),
+    ),
 )
 results = tuner.fit()
