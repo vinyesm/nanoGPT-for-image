@@ -207,8 +207,6 @@ def train(config):
 
     # Data loading logic remains unchanged
     data_dir = os.path.join('/workspace/nanoGPT-for-image/data', dataset)
-    print(f"M: os.getcwd() {os.getcwd()}")
-    print(f"M: datadir {data_dir}")
     def get_batch(split):
         if split == 'train':
             data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=data_dtype, mode='r')
@@ -291,7 +289,6 @@ def train(config):
     local_iter_num = 0
     raw_model = model.module if ddp else model
     running_mfu = -1.0
-    print(f"M: Training loop Device: {torch.cuda.current_device()}")
 
     while iter_num < optimizer_config['max_iters']:
         # Learning rate adjustment
