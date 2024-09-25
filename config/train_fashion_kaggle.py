@@ -10,7 +10,7 @@ data_dtype = np.int64
 
 # batch
 batch_size = 1
-block_size = 64 #2048
+block_size = 255 #64 #2048
 gradient_accumulation_steps = 5 * 8 * 10
 
 # max iters
@@ -18,24 +18,24 @@ max_iters = 600000
 lr_decay_iters = 600000
 
 # eval stuff
-eval_interval = 10
+eval_interval = 50
 eval_iters = 200
-log_interval = 10
+log_interval = 50
 
 # model
 n_layer = 12
 n_head = 12
 n_embd = 768
 dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
-positional = "1d"
+positional = "2d"
 
 # wandb
 wandb_log = True
 wandb_project = 'fashion-kaggle'
-wandb_run_name = f'pe2d_gpt_l{n_layer}_h{n_head}_e{n_embd}'
+wandb_run_name = f'pe2d_val_block_is_fullimage'
 
 # weight decay
-learning_rate = 6e-5
+learning_rate = 6e-4
 weight_decay = 1e-1
 
 # to sample images during training and log to wandb
