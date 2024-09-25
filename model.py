@@ -109,6 +109,7 @@ class Block(nn.Module):
 class GPTConfig:
     block_size: int = 1024
     vocab_size: int = 50304 # GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency
+    positional: str = "1d"
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
@@ -123,9 +124,17 @@ class GPT(nn.Module):
         assert config.block_size is not None
         self.config = config
 
+        # positional
+        if config.positional == "2d":
+            print("positional encoding is 2d")
+            wpe = nn.ModuleList(nn.Embedding(16, config.n_embd),nn.Embedding(16, config.n_embd))
+        else:
+            print("positional encoding is 1d")
+            wpe = nn.Embedding(config.block_size, config.n_embd)
+
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
-            wpe = nn.Embedding(config.block_size, config.n_embd),
+            wpe = wpe,
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
@@ -156,7 +165,11 @@ class GPT(nn.Module):
         """
         n_params = sum(p.numel() for p in self.parameters())
         if non_embedding:
-            n_params -= self.transformer.wpe.weight.numel()
+            if self.config.positional == "2d":
+                n_params -= self.transformer.wpe[0].weight.numel()
+                n_params -= self.transformer.wpe[1].weight.numel()
+            else:
+                n_params -= self.transformer.wpe.weight.numel()
         return n_params
 
     def _init_weights(self, module):
@@ -167,15 +180,24 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, targets=None, index=None):
+        # forward the GPT model itself
+        tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
+
+        # position embeddings
         device = idx.device
         b, t = idx.size()
         assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+        if self.config.positional == "2d":
+            if index is None:
+                index = torch.zeros(b, dtype=torch.long, device=device)
+            pos_w = torch.stack([torch.arange(i, i + t, dtype=torch.long, device=device) for i in index]) % 16  # shape (b, t)
+            pos_h = torch.stack([torch.arange(i, i + t, dtype=torch.long, device=device) for i in index]) // 16 # shape (b, t)
+            pos_emb = self.transformer.wpe[0](pos_w) + self.transformer.wpe[1](pos_w)
+        else:
+            pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+            pos_emb = self.transformer.wpe(pos) # position embeddings of shape (t, n_embd)
 
-        # forward the GPT model itself
-        tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
-        pos_emb = self.transformer.wpe(pos) # position embeddings of shape (t, n_embd)
         x = self.transformer.drop(tok_emb + pos_emb)
         for block in self.transformer.h:
             x = block(x)
