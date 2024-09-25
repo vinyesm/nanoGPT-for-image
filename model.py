@@ -127,7 +127,7 @@ class GPT(nn.Module):
         # positional
         if config.positional == "2d":
             print("positional encoding is 2d")
-            wpe = nn.ModuleList(nn.Embedding(16, config.n_embd),nn.Embedding(16, config.n_embd))
+            wpe = nn.ModuleList([nn.Embedding(16, config.n_embd),nn.Embedding(16, config.n_embd)])
         else:
             print("positional encoding is 1d")
             wpe = nn.Embedding(config.block_size, config.n_embd)
