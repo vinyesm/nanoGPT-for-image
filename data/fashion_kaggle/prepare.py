@@ -67,7 +67,7 @@ def write_img_file_list(in_directory, out_file):
     for f in os.listdir(in_directory)
     if f.endswith(".jpg")]
   with open(out_file, 'w') as f:
-    for path in img_paths:
+    for path in sorted(img_paths):
       f.write(path + "\n")
 
 if __name__ == '__main__':
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     print(f"Length of validation set: {len(val)} ({100*len(val)/(len(train)+len(val)):0.0f}%)")
 
     # add a debug dataset with single image
-    index = 144  # You can change this index if needed
+    index = 43853  # You can change this index if needed
     data = kaggle_dataset[index]
     single = SingleSampleDataset(data)
     print(f"Length of single set: {len(single)}")
