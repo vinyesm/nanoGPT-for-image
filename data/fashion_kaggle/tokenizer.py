@@ -5,7 +5,7 @@ import subprocess
 from einops import rearrange
 import PIL
 from omegaconf import OmegaConf
-from taming.models.lfqgan import VQModel
+from open_magvit2.taming.models.lfqgan import VQModel
 import torch
 
 ckpt_path = "image_tokenizer"
@@ -27,7 +27,7 @@ def load_imagenet_256_L():
     '''
     loads the image tokenizer model
     '''
-    config_path = pkg_resources.resource_filename('configs', 'gpu/imagenet_lfqgan_256_L.yaml')
+    config_path = pkg_resources.resource_filename('open_magvit2', 'configs/gpu/imagenet_lfqgan_256_L.yaml')
     config = OmegaConf.load(config_path)
     model = VQModel(**config.model.init_args)
     model_path = os.path.join(ckpt_path, 'imagenet_256_L.ckpt')
