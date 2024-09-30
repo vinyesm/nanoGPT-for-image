@@ -4,17 +4,18 @@ from data.fashion_kaggle.tokenizer import decode_from_indices, custom_to_pil
 # train a miniature image generation model
 
 meta_vocab_size = 262144
-out_dir = 'out-fashion-kaggle'
+name = 'fashion-kaggle-all-511-1d'
+out_dir = f'out-{name}'
 dataset = 'fashion_kaggle'
 data_dtype = np.int64
 
 # batch
 batch_size = 1
-block_size = 255 #64 #2048
+block_size = 511 #64 #2048
 gradient_accumulation_steps = 5 * 8 * 10
 
 # max iters
-max_iters = 600000
+max_iters = 1500 #600000
 lr_decay_iters = 600000
 
 # eval stuff
@@ -27,12 +28,12 @@ n_layer = 12
 n_head = 12
 n_embd = 768
 dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
-positional = "2d"
+positional = "1d"
 
 # wandb
 wandb_log = True
 wandb_project = 'fashion-kaggle'
-wandb_run_name = f'pe2d_val_block_is_fullimage'
+wandb_run_name = name
 
 # weight decay
 learning_rate = 6e-4
