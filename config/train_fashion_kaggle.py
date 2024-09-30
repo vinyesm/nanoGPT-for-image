@@ -1,5 +1,5 @@
-from data.fashion_kaggle.tokenizer import download_imagenet_256_L, load_imagenet_256_L
-from data.fashion_kaggle.tokenizer import decode_from_indices, custom_to_pil
+from data.tokenizer import download_imagenet_256_L, load_imagenet_256_L
+from data.tokenizer import decode_from_indices, custom_to_pil
 
 # train a miniature image generation model
 

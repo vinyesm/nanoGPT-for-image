@@ -8,7 +8,7 @@ import PIL
 import numpy as np
 import torch
 from model import GPTConfig, GPT
-from data.fashion_kaggle.tokenizer import download_imagenet_256_L, load_imagenet_256_L, decode_from_indices, custom_to_pil
+from data.tokenizer import download_imagenet_256_L, load_imagenet_256_L, decode_from_indices, custom_to_pil
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
