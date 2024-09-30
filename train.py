@@ -58,6 +58,7 @@ n_head = 12
 n_embd = 768
 dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
+positional = "1d" # 1d or 2d
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
 max_iters = 600000 # total number of training iterations
@@ -139,16 +140,20 @@ def get_batch(split):
     if split == 'train':
         data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=data_dtype, mode='r')
     else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=data_dtype, mode='r')
-    ix = torch.randint(len(data) - block_size, (batch_size,))
+        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=data_dtype, mode='r')
+    # ix = torch.randint(len(data) - block_size, (batch_size,))
+    ix = torch.randint((len(data) - block_size) // 256 + 1, (batch_size,)) * 256 # select a begining of an image
+
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
     if device_type == 'cuda':
         # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
-        x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
+        x, y, ix = x.pin_memory().to(device, non_blocking=True), \
+        y.pin_memory().to(device, non_blocking=True), \
+        ix.pin_memory().to(device, non_blocking=True)
     else:
-        x, y = x.to(device), y.to(device)
-    return x, y
+        x, y = x.to(device), y.to(device), ix.to(device)
+    return x, y, ix
 
 # init these up here, can override if init_from='resume' (i.e. from a checkpoint)
 iter_num = 0
@@ -165,7 +170,7 @@ if meta_vocab_size is None:
 
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
-                  bias=bias, vocab_size=None, dropout=dropout) # start with model_args from command line
+                  bias=bias, vocab_size=None, dropout=dropout, positional=positional) # start with model_args from command line
 if init_from == 'scratch':
     # init a new model from scratch
     print("Initializing a new model from scratch")
@@ -239,9 +244,9 @@ def estimate_loss():
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y = get_batch(split)
+            X, Y, IX = get_batch(split)
             with ctx:
-                logits, loss = model(X, Y)
+                logits, loss = model(X, Y, IX)
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
@@ -267,7 +272,7 @@ if wandb_log and master_process:
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
 # training loop
-X, Y = get_batch('train') # fetch the very first batch
+X, Y, IX = get_batch('train') # fetch the very first batch
 t0 = time.time()
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
@@ -284,7 +289,7 @@ while True:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         if log_media:
-            ximg = generate_image(ctx, model, enc, start_ids)
+            ximg = generate_image(model, enc)
             ximg.save(f"examples/{iter_num}.jpg")
         if wandb_log:
             log_data = {
@@ -324,10 +329,10 @@ while True:
             # looking at the source of that context manager, it just toggles this variable
             model.require_backward_grad_sync = (micro_step == gradient_accumulation_steps - 1)
         with ctx:
-            logits, loss = model(X, Y)
+            logits, loss = model(X, Y, IX)
             loss = loss / gradient_accumulation_steps # scale the loss to account for gradient accumulation
         # immediately async prefetch next batch while model is doing the forward pass on the GPU
-        X, Y = get_batch('train')
+        X, Y, IX = get_batch('train')
         # backward pass, with gradient scaling if training in fp16
         scaler.scale(loss).backward()
     # clip the gradient

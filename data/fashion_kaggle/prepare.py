@@ -1,6 +1,7 @@
 # saves the kaggle fashion image dataset to a binary file for training, 
 # using open-magvit2 image tokenizer
 # https://github.com/TencentARC/Open-MAGVIT2/tree/main
+# python -m data.fashion_kaggle.prepare
 
 import os
 import requests
@@ -13,7 +14,7 @@ from torch.utils.data.dataloader import default_collate as custom_collate
 from tqdm import tqdm
 
 from custom import CustomTest, CustomTrain
-from tokenizer import load_imagenet_256_L, download_imagenet_256_L
+from data.tokenizer import load_imagenet_256_L, download_imagenet_256_L
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
