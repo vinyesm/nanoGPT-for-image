@@ -28,8 +28,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
-from data.fashion_kaggle.tokenizer import download_imagenet_256_L, load_imagenet_256_L
-from data.fashion_kaggle.tokenizer import decode_from_indices, custom_to_pil
+from data.tokenizer import download_imagenet_256_L, load_imagenet_256_L
+from data.tokenizer import decode_from_indices, custom_to_pil
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -116,22 +116,6 @@ device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.aut
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
-if log_media:
-    download_imagenet_256_L()
-    enc = load_imagenet_256_L().to(device)
-    os.makedirs("examples", exist_ok=True)
-    start_ids = [154737]
-
-    def generate_image(ctx, model, enc, start_ids):
-        x = (torch.tensor(start_ids, dtype=torch.int64, device=device)[None, ...])
-        with torch.no_grad():
-            with ctx:
-                y = model.generate(x, 256 - len(start_ids), temperature=0.8, top_k=200)
-        x = y[0].detach().to(dtype=torch.int64, device=device)
-        xr = decode_from_indices(enc, x, 1)
-        ximg = custom_to_pil(xr[0])
-        return ximg
-
 # poor man's data loader
 data_dir = os.path.join('data', dataset)
 def get_batch(split):
@@ -140,7 +124,7 @@ def get_batch(split):
     if split == 'train':
         data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=data_dtype, mode='r')
     else:
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=data_dtype, mode='r')
+        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=data_dtype, mode='r')
     # ix = torch.randint(len(data) - block_size, (batch_size,))
     ix = torch.randint((len(data) - block_size) // 256 + 1, (batch_size,)) * 256 # select a begining of an image
 
