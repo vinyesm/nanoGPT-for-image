@@ -18,6 +18,8 @@ references:
 
 ## install
 
+For the tokenizer model you need
+
 ```bash
-pip install git+https://github.com/vinyesm/Open-MAGVIT2.git@make-it-a-package
+pip install open-magvit2
 ```
