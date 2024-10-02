@@ -12,6 +12,7 @@ import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate as custom_collate
+from torch.amp import autocast  # Mixed precision
 from tqdm import tqdm
 from datasets import load_dataset
 
@@ -23,78 +24,77 @@ NUM_WORKERS = 8
 
 # number of workers in .map() call
 # good number to use is ~order number of cpu cores // 2
-num_proc = 1 # 1 gpu
-batch_size = 128
+# num_proc = 1 # 1 gpu
+# batch_size = 128
 
 # number of workers in load_dataset() call
 # best number might be different from num_proc above as it also depends on NW speed.
 # it is better than 1 usually though
-num_proc_load_dataset = 16
-
-
+# num_proc_load_dataset = 16
 
 # download the image tokenizer model
 download_imagenet_256_L()
 
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+num_proc_load_dataset = 16
+# batch_size = 512
 
 
 # load the image tokenizer model
-enc = load_imagenet_256_L().to(DEVICE) # 1.5G
+enc = load_imagenet_256_L().to("cuda:0") # 1.5G
 
 transform = transforms.Compose([
     transforms.ToTensor(),  # Converts a PIL image or numpy array to a Tensor
     transforms.Lambda(lambda image: (image * 2) - 1)  # Scale pixel values to [-1, +1]
 ])
 
-class SingleSampleDataset(Dataset):
-    '''
-    a dataset of a single sample useful for debugging, i.e. overfitting on one image
-    '''
-    def __init__(self, data):
-        self.data = data
-        
-    def __len__(self):
-        return 1
-    
-    def __getitem__(self, index):
-        return self.data
-
 if __name__ == '__main__':
     # download and load the dataset
-    # split_dataset = load_dataset("benjamin-paine/imagenet-1k-256x256", num_proc=num_proc_load_dataset)
-    split_dataset = load_dataset("benjamin-paine/imagenet-1k-256x256", split={'train': 'train[0:1]', 'val': 'validation[0:100]', 'test': 'validation[0:50]'},num_proc=5)
-    print(f"Length of train set: {split_dataset['train'].num_rows}")
-    print(f"Length of validation set: {split_dataset['val'].num_rows}")
-    print(f"Length of test set: {split_dataset['test'].num_rows}")
+    split_dataset = load_dataset("benjamin-paine/imagenet-1k-256x256", num_proc=num_proc_load_dataset)
+    split_dataset['val'] = split_dataset.pop("validation")
+    
+    # this results in:
+    # >>> split_dataset
+    # DatasetDict({
+    #     train: Dataset({
+    #         features: ['image', 'label'],
+    #         num_rows: 1281167
+    #     })
+    #     test: Dataset({
+    #         features: ['image', 'label'],
+    #         num_rows: 100000
+    #     })
+    #     val: Dataset({
+    #         features: ['image', 'label'],
+    #         num_rows: 50000
+    #     })
+    # })
 
     # we now want to tokenize the dataset. first define the encoding function
-    def process(examples):
-        image_tensors = [transform(image) for image in examples['image']]  # Apply transform to each image in the batch
-        batch = torch.stack(image_tensors).to(DEVICE)
+    def process(example):
+        image_tensors = [transform(image) for image in example['image']]
+        batch = torch.stack(image_tensors).to('cuda:0')
         n = len(batch)
         with torch.no_grad():
-            if enc.use_ema:
-                with enc.ema_scope():
+            with autocast('cuda'):  # Use mixed precision (not much speed improvement)
+                if enc.use_ema:
+                    with enc.ema_scope():
+                        _, _, ids, _ = enc.encode(batch)
+                else:
                     _, _, ids, _ = enc.encode(batch)
-            else:
-                _, _, ids, _ = enc.encode(batch)
         ids_reshaped = ids.view(n, 256)
         lengths =  [256] * n
         out = {'ids': ids_reshaped, 'len': lengths}
-        del batch, image_tensors, ids
-        torch.cuda.empty_cache()  # Optionally clear cache after each batch
-        # print(out)
         return out
 
-    # tokenize the dataset
+    # tokenize the dataset (this is long, takes ~3h on a RTX4090, best params found batch_size=128 and num_proc=1)
     tokenized = split_dataset.map(
         process,
-        remove_columns=['label', 'image'],
-        batched=True,  # Process in batches
-        batch_size=batch_size,  # Set your desired batch size
+        remove_columns=['image', 'label'],
+        batched=True,
+        batch_size=128,
         desc="tokenizing the splits",
-        num_proc=num_proc,
+        num_proc=1, # only one gpu
     )
 
     for split, dset in tokenized.items():
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         filename = os.path.join(os.path.dirname(__file__), f'{split}.bin')
         dtype = np.uint64 
         arr = np.memmap(filename, dtype=dtype, mode='w+', shape=(arr_len,))
-        total_batches = 1 #1024
+        total_batches = 1024
         idx = 0
         for batch_idx in tqdm(range(total_batches), desc=f'writing {filename}'):
             # Batch together samples for faster write
@@ -113,18 +113,10 @@ if __name__ == '__main__':
             idx += len(arr_batch)
         arr.flush()
 
-# #
-# import numpy as np
-# import torch
-# from data.tokenizer import load_imagenet_256_L, download_imagenet_256_L, custom_to_pil
-# DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-# enc = load_imagenet_256_L().to(DEVICE)
-# m = np.memmap('data/imagenet_1k/train.bin', dtype=np.uint64, mode='r')
-# x = (torch.tensor(m, dtype=torch.int64, device=DEVICE)[None, ...])
-# q = enc.quantize.get_codebook_entry(x, (1, 16, 16, 18), order='')
+# train.bin is ~2.5G, validation.bin ~98M, test.bin 176M
+# train has ~320M tokens (327,978,752)
+# val has ~12M tokens (12,800,000)
+# test has ~256M tokens (256,00,000)
 
-# with torch.no_grad():
-#     tensor2 = enc.decode(q)
-
-# reconstructed_image2 = custom_to_pil(tensor2[0])
-# reconstructed_image2.save("data/imagenet_1k/train.jpg")
+# to read the bin files later, e.g. with numpy:
+# m = np.memmap('train.bin', dtype=np.int64, mode='r')
