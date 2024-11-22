@@ -3,15 +3,21 @@
 
 This is a fork of [nanoGPT](https://github.com/karpathy/nanoGPT) adapted to train an image generation model. It adds two datasets (fashion-kaggle and imagenet1k) and wandb logging of generated images during training.
 
-<figure>
-    <img src="train_imagenet1k.png" alt="nanoGPT-for-image. Training on imagenet1k" />
-    <figcaption>nanoGPT-for-image. Training on imagenet1k</figcaption>
-</figure>
+<p align="center">
+    <img src="train_imagenet1k.png" alt="nanoGPT-for-image. Training on imagenet1k">
+</p>
 
-<figure>
-    <img src="wandb_logging.png" alt="wandb_logging" />
-    <figcaption>wandb logging during training</figcaption>
-</figure>
+<p align="center">
+    <em>Figure: nanoGPT-for-image. Training on imagenet1k</em>
+</p>
+
+<p align="center">
+    <img src="wandb_logging.png" alt="wandb_logging">
+</p>
+
+<p align="center">
+    <em>Figure: wandb logging during training</em>
+</p>
 
 ## install
 
@@ -62,11 +68,14 @@ python sample_image.py --out_dir=out-imagenet1k-all-256-1d-batch16-lr6e-3
 
 This generates a few samples, for example:
 
-<figure>
-    <img src="imagenet1k_generated.png" alt="imagenet1k_generatedt" width="400"/>
-</figure>
+<p align="center">
+    <img src="imagenet1k_generated.png" alt="imagenet1k_generated" width="400">
+</p>
 
-### Train on kaggle fashion
+<p align="center">
+    <em>Figure: Generated images</em>
+</p>
+## Train on kaggle fashion
 
 ### 1. Prepare training the data into binary file
 First, download and tokenize the dataset (tokenization is done with [Open-MAGVIT2](https://github.com/TencentARC/Open-MAGVIT2/tree/main)):
@@ -77,7 +86,7 @@ python data/kaggle-fashion/prepare.py
 
 This creates a `train.bin`, `val.bin`, `single.bin` (a single image, useful for debugging purposes) in that data directory. 
 
-### 2.Train
+### 2. Train
 Now it is time to train your GPT. Experiments in this repo are done with an RTX4090
 
 ```sh
@@ -86,7 +95,12 @@ python train.py config/train_fashion_kaggle.py
 
 On one RTX4090 GPU overfiting on one image should take one minute.
 
-![overfit on one image](overfit_one_image.gif "overfit on one image")
+<p align="center">
+    <img src="overfit_one_image.gif" alt="overfit_one_image.gif">
+</p>
+<p align="center">
+    <em>overfit on one image</em>
+</p>
 
 The model checkpoints are being written into the `--out_dir` as `out-fashion-kaggle`. 
 

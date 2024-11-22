@@ -1,10 +1,13 @@
 ## Kaggle Product Fashion dataset
 
 
-<figure>
-    <img src="kaggle-fashion.png" alt="Kaggle fashion dataset" />
-    <figcaption>ImageNet dataset</figcaption>
-</figure>
+<p align="center">
+    <img src="kaggle-fashion.png" alt="Kaggle fashion dataset">
+</p>
+
+<p align="center">
+    <em>Figure: Kaggle fashion dataset</em>
+</p>
 
 44,444 images of (256,256) pixels in total. The image tokenizer used is [Open-MAGVIT2](https://github.com/TencentARC/Open-MAGVIT2/tree/main). Each 256×256 image is tokenized into 16×16(256) tokens.
 
